@@ -1,0 +1,24 @@
+# ================================
+# Base Docker Image - Common Setup
+# ================================
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-alpine
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev
+
+# Create app user for security
+RUN addgroup -g 1000 appgroup && \
+    adduser -D -u 1000 -G appgroup appuser
+
+# Set working directory
+WORKDIR /app
+
+# Change ownership to app user
+RUN chown -R appuser:appgroup /app

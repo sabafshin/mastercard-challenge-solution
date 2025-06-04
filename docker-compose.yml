@@ -1,0 +1,47 @@
+services:
+  # Base image service - Common setup
+  base-image:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.base
+      args:
+        PYTHON_VERSION: "${PYTHON_VERSION:-3.12}"
+    image: fcs-devops-base:latest
+
+  # Development service - Live reload with volume mounting
+  dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    depends_on:
+      - base-image
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - REPOSITORY_TYPE=memory
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    volumes:
+      # Mount source code for live reload
+      - "${PWD}/src:/app/src"
+    restart: unless-stopped
+
+  # Production service - Immutable deployment with baked-in code
+  prod:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.prod
+      args:
+        PYTHON_VERSION: "${PYTHON_VERSION:-3.12}"
+    depends_on:
+      - base-image
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - REPOSITORY_TYPE=memory # Should be replaced with a real database in production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    # No volume mounting in production
+    restart: unless-stopped
+
+networks:
+  default:
+    name: accounts-api-network

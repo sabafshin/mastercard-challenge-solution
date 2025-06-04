@@ -1,0 +1,27 @@
+# ================================
+# Development Docker Image
+# ================================
+# Note: Source code will be mounted as volume for live reload
+
+FROM fcs-devops-base:latest
+
+# Switch to non-root user
+USER appuser
+
+# Copy pyproject.toml for dependency installation
+COPY --chown=appuser:appgroup pyproject.toml ./
+
+# Install dependencies (including dev dependencies)
+# Note: Source code will be mounted at runtime
+RUN pip install -e .[dev] --user
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# Development command with live reload
+# Source code will be mounted to /app/src
+CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,0 +1,38 @@
+# ================================
+# Production Docker Image
+# ================================
+# Multi-stage build: Build wheel then create minimal runtime image
+
+# Stage 1: Build wheel package
+FROM fcs-devops-base:latest as builder
+
+# Copy source code and build files
+COPY --chown=appuser:appgroup pyproject.toml README.md ./
+COPY --chown=appuser:appgroup src/ src/
+
+# Switch to app user for build
+USER appuser
+
+# Build wheel package using pip
+RUN python -m pip install --user build && \
+    python -m build --wheel
+
+# Stage 2: Runtime image
+FROM fcs-devops-base:latest as runtime
+
+# Switch to non-root user
+USER appuser
+
+# Copy and install the wheel package
+COPY --from=builder --chown=appuser:appgroup /app/dist/*.whl /tmp/
+RUN pip install --user /tmp/*.whl && rm /tmp/*.whl
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# Production command - use the app object directly from the installed package
+CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
